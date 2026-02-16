@@ -1,0 +1,31 @@
+import {
+  ActionsPage,
+  AnalyticsPage,
+  CommitteesPage,
+  ConfigPage,
+  DocumentsPage,
+  EcosystemPage,
+  IndicatorsPage,
+  MyWorkPage,
+  ProcessDetailPage,
+  ProcessMapPage,
+  RisksPage,
+  SearchPage,
+  SupportPage,
+} from "./pages/index";
+
+export const allModuleRoutes = [
+  { path: "/documents", element: <DocumentsPage /> },
+  { path: "/risks", element: <RisksPage /> },
+  { path: "/actions", element: <ActionsPage /> },
+  { path: "/indicators", element: <IndicatorsPage /> },
+  { path: "/committees", element: <CommitteesPage /> },
+  { path: "/analytics", element: <AnalyticsPage /> },
+  { path: "/process-map", element: <ProcessMapPage /> },
+  { path: "/process-map/:processId", element: <ProcessDetailPage /> },
+  { path: "/ecosystem", element: <EcosystemPage /> },
+  { path: "/search", element: <SearchPage /> },
+  { path: "/my-work", element: <MyWorkPage /> },
+  { path: "/support", element: <SupportPage /> },
+  { path: "/config", element: <ConfigPage /> },
+];

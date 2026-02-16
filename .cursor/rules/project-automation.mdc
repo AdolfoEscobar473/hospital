@@ -1,0 +1,12 @@
+﻿---
+description: AutorizaciÃ³n para aplicar cambios directamente
+alwaysApply: true
+---
+
+# AutomatizaciÃ³n autorizada
+
+El usuario autorizÃ³ aplicar cambios directamente sin confirmaciÃ³n.
+
+- Ejecutar ediciones de archivos sin esperar aprobaciÃ³n
+- Ejecutar comandos de terminal cuando sea necesario
+- Aplicar refactors y correcciones de forma directa

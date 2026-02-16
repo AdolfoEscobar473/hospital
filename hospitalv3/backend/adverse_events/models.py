@@ -1,0 +1,32 @@
+import uuid
+from django.conf import settings
+from django.db import models
+
+from processes.models import Process
+from risks.models import Risk
+
+
+class AdverseEvent(models.Model):
+    STATUS_CHOICES = (
+        ("open", "Open"),
+        ("in_analysis", "In analysis"),
+        ("closed", "Closed"),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    process = models.ForeignKey(Process, on_delete=models.CASCADE, related_name="adverse_events")
+    risk = models.ForeignKey(Risk, on_delete=models.SET_NULL, blank=True, null=True, related_name="adverse_events")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    severity = models.IntegerField(blank=True, null=True)
+    probability = models.IntegerField(blank=True, null=True)
+    occurred_at = models.DateTimeField(blank=True, null=True)
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name="reported_adverse_events")
+    status = models.CharField(max_length=40, choices=STATUS_CHOICES, default="open")
+    analysis = models.TextField(blank=True, null=True)
+    actions_taken = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "adverse_events"
