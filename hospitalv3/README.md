@@ -1,84 +1,47 @@
-# hospitalv3 - Django DRF + React + PostgreSQL
+# Hospital v3 - Sistema de Gestión Hospitalaria
 
-Migracion paralela de `hospitalv2` hacia nueva arquitectura.
+Sistema completo de gestión hospitalaria desplegado en Azure.
 
-## Estructura
+## 🌐 Aplicación en Producción
 
-- `backend/`: Django + DRF + JWT + apps por dominio.
-- `frontend/`: React + Vite + rutas protegidas + cliente API.
-- `docs/`: contratos API, ETL y plan de cutover.
-- `scripts/`: utilidades operativas (ETL, smoke).
+- **Frontend**: https://salmon-desert-01d56c70f.1.azurestaticapps.net
+- **Backend API**: https://hospital-api-carlosdev.azurewebsites.net
 
-## Backend
+## 🏗️ Arquitectura
 
-```powershell
+- **Frontend**: React + Vite desplegado en Azure Static Web Apps
+- **Backend**: Django + DRF desplegado en Azure App Service
+- **Base de Datos**: SQLite (demo) - Migrar a Azure PostgreSQL para producción
+- **CI/CD**: GitHub Actions para deployment automático
+
+## 🚀 Deployment Automático
+
+Cada push a la rama `main` activa automáticamente:
+- Build del frontend con Vite
+- Deployment a Azure Static Web Apps
+- El backend se despliega manualmente via Azure CLI
+
+## 📝 Variables de Entorno
+
+Ver `deploy-secrets.env.example` para las variables necesarias.
+
+## 🛠️ Desarrollo Local
+
+```bash
+# Backend
 cd backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-copy .env.example .env
-.\.venv\Scripts\python.exe manage.py migrate
-.\.venv\Scripts\python.exe manage.py seed_initial_data
-.\.venv\Scripts\python.exe manage.py runserver 8000
-```
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
 
-## Frontend
-
-```powershell
+# Frontend
 cd frontend
 npm install
-copy .env.example .env
 npm run dev
 ```
 
-## Pruebas ejecutadas
+## 📦 Despliegue Manual
 
-- Backend: `manage.py test` (OK, 5 pruebas).
-- Frontend: `npm run lint` (OK) y `npm run build` (OK).
-
-## ETL desde SQLite
-
-Ver `docs/ETL_SQLITE_A_POSTGRES.md`.
-
-Comando rapido:
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe manage.py etl_from_sqlite --sqlite-path "c:\Users\SANDRA\Downloads\HOSPITAL\desarrollo-hospital-1\hospitalv2\hospital.db"
-```
-
-## Docker compose
-
-```powershell
-cd ..
-docker compose -f hospitalv3\docker-compose.yml up --build
-```
-
-## Smoke rapido
-
-Con backend iniciado y usuario admin sembrado:
-
-```powershell
-.\scripts\smoke.ps1 -ApiBase "http://localhost:8000/api" -Username "admin" -Password "admin123"
-```
-
-## Producción y secretos
-
-En **producción** no uses los valores por defecto de `.env.example`. Configura:
-
-- **DJANGO_SECRET_KEY**: cadena aleatoria de al menos 32 caracteres (genera con `python -c "import secrets; print(secrets.token_urlsafe(40))"`).
-- **JWT_SECRET**: otro secreto distinto para firmar tokens JWT (también ≥32 caracteres).
-- **POSTGRES_PASSWORD**, **CORS_ALLOWED_ORIGINS**, **DJANGO_ALLOWED_HOSTS** según tu dominio e infra.
-
-No subas el archivo `.env` con valores reales al repositorio. Usa variables de entorno del servidor o un gestor de secretos.
-
-## Validación de roles y restablecer contraseña
-
-Para ejecutar el script de validación de permisos por rol y flujo de restablecer contraseña:
-
-```powershell
-cd backend
-python manage.py seed_reader_user
-python scripts/validate_roles_and_reset.py
-```
-
-El script requiere que exista el usuario `reader_test` (creado con `seed_reader_user`). Ver `docs/VALIDACION_CONFIG.md` para pasos manuales.
+Ver `DEPLOY_AZURE.md` y `scripts/deploy-azure-cli.md` para instrucciones detalladas.
