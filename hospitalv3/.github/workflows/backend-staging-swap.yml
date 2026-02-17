@@ -1,0 +1,137 @@
+name: Backend Deploy Staging Swap
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-staging-swap.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-prod-deploy
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: rg-hospital-prod
+  WEBAPP_NAME: hospital-api-carlosdev
+  HEALTH_PATH: /api/auth/login
+  ORIGIN_URL: https://salmon-desert-01d56c70f.1.azurestaticapps.net
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Build backend artifact
+        run: |
+          set -euo pipefail
+          rm -rf package backend-staging.zip
+          mkdir -p package/backend
+          rsync -a \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude "*.pyc" \
+            --exclude "*.pyo" \
+            --exclude ".env" \
+            --exclude "db.sqlite3" \
+            --exclude "staticfiles" \
+            --exclude ".pytest_cache" \
+            backend/ package/backend/
+          cp backend/requirements.txt package/requirements.txt
+          (cd package && zip -rq ../backend-staging.zip .)
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to staging slot
+        run: |
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEBAPP_NAME" \
+            --slot staging \
+            --src-path backend-staging.zip \
+            --type zip \
+            --restart true \
+            --track-status true
+
+      - name: Run migrations explicitly
+        env:
+          USE_SQLITE: "false"
+          POSTGRES_HOST: ${{ secrets.POSTGRES_ADMIN_HOST }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_ADMIN_PORT }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_ADMIN_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_ADMIN_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          PGSSLMODE: require
+          DJANGO_DEBUG: "false"
+        run: |
+          set -euo pipefail
+          if [ -z "${POSTGRES_PORT}" ]; then
+            export POSTGRES_PORT="5432"
+          fi
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+          python backend/manage.py migrate --noinput
+
+      - name: Validate staging slot
+        run: |
+          set -euo pipefail
+          STAGING_URL="https://${WEBAPP_NAME}-staging.azurewebsites.net${HEALTH_PATH}"
+          for i in {1..24}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$STAGING_URL")
+            if [ "$code" = "405" ] || [ "$code" = "400" ]; then
+              break
+            fi
+            sleep 10
+          done
+          if [ "$code" != "405" ] && [ "$code" != "400" ]; then
+            echo "Staging health check failed with code $code"
+            exit 1
+          fi
+
+          preflight=$(curl -s -o /dev/null -w "%{http_code}" -X OPTIONS "$STAGING_URL" \
+            -H "Origin: ${ORIGIN_URL}" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type")
+          if [ "$preflight" != "200" ]; then
+            echo "Staging CORS check failed with code $preflight"
+            exit 1
+          fi
+
+      - name: Swap staging to production
+        run: |
+          az webapp deployment slot swap \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEBAPP_NAME" \
+            --slot staging \
+            --target-slot production
+
+      - name: Validate production
+        run: |
+          set -euo pipefail
+          PROD_URL="https://${WEBAPP_NAME}.azurewebsites.net${HEALTH_PATH}"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_URL")
+          if [ "$code" != "405" ] && [ "$code" != "400" ]; then
+            echo "Production health check failed with code $code"
+            exit 1
+          fi
+
+          preflight=$(curl -s -o /dev/null -w "%{http_code}" -X OPTIONS "$PROD_URL" \
+            -H "Origin: ${ORIGIN_URL}" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type")
+          if [ "$preflight" != "200" ]; then
+            echo "Production CORS check failed with code $preflight"
+            exit 1
+          fi
